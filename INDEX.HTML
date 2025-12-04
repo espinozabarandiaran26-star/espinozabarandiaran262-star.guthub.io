@@ -1,0 +1,624 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>AURA | Workspace</title>
+    
+    <link rel="manifest" href='data:application/manifest+json,{"name":"Aura OS","short_name":"AURA","start_url":".","display":"standalone","background_color":"#F4F4F5","theme_color":"#FFFFFF","icons":[{"src":"https://cdn-icons-png.flaticon.com/512/2913/2913520.png","sizes":"192x192","type":"image/png"}]}'>
+    <meta name="apple-mobile-web-app-capable" content="yes">
+
+    <link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@300;400;500;600;700&family=Inter:wght@300;400;500;600&display=swap" rel="stylesheet">
+    <script src="https://unpkg.com/@phosphor-icons/web"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/lz-string/1.4.4/lz-string.min.js"></script>
+    <script src='https://meet.jit.si/external_api.js'></script>
+
+    <style>
+        :root {
+            /* TEMA DEFAULT (LIGHT - AURA) */
+            --bg-body: #FAFAFA;
+            --bg-surface: #FFFFFF;
+            --text-main: #18181B;
+            --text-muted: #A1A1AA;
+            --border: #E4E4E7;
+            --primary: #18181B;
+            --accent: #2563EB;
+            --radius: 16px; /* Más redondeado y suave */
+            --transition: all 0.3s cubic-bezier(0.25, 0.46, 0.45, 0.94);
+        }
+
+        /* TEMA DARK */
+        [data-theme="dark"] {
+            --bg-body: #050505;
+            --bg-surface: #121212;
+            --text-main: #FAFAFA;
+            --text-muted: #525252;
+            --border: #27272A;
+            --primary: #FAFAFA;
+            --accent: #3B82F6;
+        }
+
+        /* TEMA MIDNIGHT */
+        [data-theme="midnight"] {
+            --bg-body: #0F172A;
+            --bg-surface: #1E293B;
+            --text-main: #F8FAFC;
+            --text-muted: #64748B;
+            --border: #334155;
+            --primary: #E2E8F0;
+            --accent: #60A5FA;
+        }
+
+        * { margin: 0; padding: 0; box-sizing: border-box; font-family: 'Inter', sans-serif; outline: none; -webkit-tap-highlight-color: transparent; }
+        body { background-color: var(--bg-body); color: var(--text-main); height: 100vh; display: flex; overflow: hidden; user-select: none; transition: background-color 0.3s, color 0.3s; }
+
+        /* --- APP LAYOUT --- */
+        #app-container { display: flex; height: 100%; width: 100%; opacity: 0; transition: opacity 0.8s ease; }
+        #app-container.visible { opacity: 1; }
+
+        /* SIDEBAR */
+        aside {
+            width: 280px; flex-shrink: 0; background: var(--bg-surface); border-right: 1px solid var(--border);
+            display: flex; flex-direction: column; padding: 2rem 1.5rem; z-index: 50; transition: var(--transition); overflow-y: auto;
+        }
+        .brand { font-family: 'Space Grotesk'; font-size: 1.1rem; font-weight: 700; margin-bottom: 2.5rem; display: flex; align-items: center; gap: 12px; letter-spacing: 2px; }
+        
+        .nav-btn {
+            padding: 12px 14px; margin-bottom: 6px; border-radius: 12px; cursor: pointer; display: flex; align-items: center; gap: 12px; 
+            color: var(--text-muted); font-size: 0.85rem; font-weight: 500; transition: var(--transition); position: relative;
+        }
+        .nav-btn:hover, .nav-btn.active { background: var(--bg-body); color: var(--text-main); }
+        .kb-hint { margin-left: auto; font-size: 0.65rem; border: 1px solid var(--border); padding: 2px 5px; border-radius: 4px; opacity: 0.5; }
+
+        /* THEME SWITCHER */
+        .theme-selector { display: flex; gap: 12px; margin-bottom: 1.5rem; padding: 0 5px; }
+        .theme-dot { width: 18px; height: 18px; border-radius: 50%; cursor: pointer; border: 2px solid transparent; transition: 0.2s; box-shadow: 0 2px 5px rgba(0,0,0,0.1); }
+        .theme-dot:hover { transform: scale(1.2); }
+        .theme-dot.active { border-color: var(--text-main); transform: scale(1.1); }
+
+        /* CALCULATOR WIDGET */
+        .calc-widget { margin-top: auto; margin-bottom: 1.5rem; border-radius: 16px; overflow: hidden; border: 1px solid var(--border); background: var(--bg-body); padding: 15px; }
+        .calc-display { width: 100%; background: transparent; border: none; color: var(--text-main); font-family: 'Space Grotesk'; font-size: 1.4rem; text-align: right; margin-bottom: 15px; font-weight: 600; }
+        .calc-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 8px; }
+        .calc-btn { background: var(--bg-surface); border: 1px solid var(--border); border-radius: 8px; padding: 10px 0; color: var(--text-muted); cursor: pointer; font-size: 0.9rem; transition: 0.1s; }
+        .calc-btn:active { transform: scale(0.92); background: var(--primary); color: var(--bg-surface); }
+        .calc-btn.op { color: var(--accent); font-weight: 700; }
+
+        .user-mini { padding-top: 1.5rem; border-top: 1px solid var(--border); display: flex; align-items: center; gap: 12px; }
+        .avatar { width: 36px; height: 36px; background: var(--primary); color: var(--bg-surface); border-radius: 10px; display: flex; align-items: center; justify-content: center; font-weight: 700; font-size: 0.9rem; }
+
+        /* MAIN */
+        main { flex: 1; display: flex; flex-direction: column; overflow: hidden; position: relative; }
+
+        .header-bar {
+            height: 80px; padding: 0 2.5rem; display: flex; align-items: center; justify-content: space-between;
+            background: var(--bg-body); flex-shrink: 0; transition: background-color 0.3s;
+        }
+        .search-wrap { 
+            background: var(--bg-surface); border: 1px solid var(--border); border-radius: 30px; padding: 8px 20px; 
+            display: flex; align-items: center; gap: 10px; width: 400px; transition: var(--transition);
+        }
+        .search-input { border: none; width: 100%; font-size: 0.95rem; background: transparent; color: var(--text-main); }
+        
+        .mic-btn { width: 40px; height: 40px; border-radius: 50%; border: none; background: var(--bg-surface); box-shadow: 0 4px 10px rgba(0,0,0,0.05); cursor: pointer; display: flex; align-items: center; justify-content: center; color: var(--text-main); transition: 0.2s; }
+        .mic-btn.listening { background: #ef4444; color: #fff; animation: pulse 1.5s infinite; }
+        @keyframes pulse { 0% { box-shadow: 0 0 0 0 rgba(239, 68, 68, 0.4); } 70% { box-shadow: 0 0 0 10px rgba(239, 68, 68, 0); } 100% { box-shadow: 0 0 0 0 rgba(239, 68, 68, 0); } }
+
+        /* WORKSPACE */
+        .workspace { flex: 1; padding: 0 2.5rem 2.5rem 2.5rem; overflow: hidden; display: grid; grid-template-columns: 1fr 360px; gap: 2.5rem; transition: var(--transition); }
+        .workspace.full-cal { grid-template-columns: 0fr 1fr; }
+        .workspace.full-cal .kanban-area { opacity: 0; pointer-events: none; width: 0; padding: 0; margin: 0; }
+
+        .kanban-area { display: flex; gap: 1.5rem; overflow-x: auto; height: 100%; padding-bottom: 10px; }
+        .column { flex: 1; min-width: 320px; display: flex; flex-direction: column; background: var(--bg-surface); border-radius: var(--radius); border: 1px solid var(--border); box-shadow: 0 4px 20px -5px rgba(0,0,0,0.02); }
+        .col-header { padding: 1.2rem; border-bottom: 1px solid var(--border); background: var(--bg-surface); border-radius: var(--radius) var(--radius) 0 0; display: flex; justify-content: space-between; align-items: center; }
+        .col-title { font-size: 0.8rem; font-weight: 700; color: var(--text-main); letter-spacing: 1px; text-transform: uppercase; background: transparent; border: none; width: 100%; cursor: text; }
+        .task-list { flex: 1; overflow-y: auto; padding: 15px; }
+
+        .card { background: var(--bg-body); border: 1px solid transparent; border-radius: 12px; padding: 1.2rem; margin-bottom: 12px; transition: var(--transition); position: relative; cursor: pointer; border-left: 4px solid transparent; }
+        .card:hover { transform: translateY(-3px); box-shadow: 0 10px 20px -5px rgba(0,0,0,0.05); background: var(--bg-surface); border-color: var(--border); }
+        .media-preview { width: 100%; height: 140px; object-fit: cover; border-radius: 8px; margin-bottom: 12px; display: block; background: var(--bg-body); border: 1px solid var(--border); }
+        .file-pill { font-size: 0.75rem; background: var(--bg-surface); padding: 8px 12px; border-radius: 8px; display: flex; align-items: center; gap: 8px; margin-bottom: 12px; border: 1px solid var(--border); color: var(--text-main); }
+        .card-title { font-weight: 600; font-size: 0.95rem; margin-bottom: 8px; line-height: 1.5; color: var(--text-main); }
+        .card-meta { display: flex; justify-content: space-between; align-items: center; font-size: 0.7rem; color: var(--text-muted); margin-top: 10px; }
+
+        /* RIGHT PANEL */
+        .right-panel { background: var(--bg-surface); border-radius: 16px; border: 1px solid var(--border); display: flex; flex-direction: column; overflow: hidden; padding: 2rem; transition: var(--transition); }
+        .workspace.full-cal .right-panel { overflow-y: auto; }
+
+        .cal-controls { display: flex; justify-content: space-between; align-items: center; margin-bottom: 1.5rem; }
+        .cal-grid { display: grid; grid-template-columns: repeat(7, 1fr); gap: 6px; text-align: center; }
+        .cal-day { aspect-ratio: 1; display: flex; flex-direction: column; align-items: center; justify-content: center; border-radius: 10px; font-size: 0.85rem; cursor: pointer; color: var(--text-muted); position: relative; transition: 0.2s; border: 1px solid transparent; }
+        .cal-day:hover { background: var(--bg-body); color: var(--text-main); border-color: var(--border); transform: scale(1.05); }
+        .cal-day.today { background: var(--primary); color: var(--bg-surface); font-weight: 600; }
+        .cal-dot { width: 5px; height: 5px; background: var(--accent); border-radius: 50%; position: absolute; bottom: 6px; }
+        .agenda-list { margin-top: 2rem; padding-top: 1.5rem; border-top: 1px solid var(--border); overflow-y: auto; flex: 1; }
+        .agenda-item { display: flex; gap: 15px; margin-bottom: 1.2rem; border-bottom: 1px dashed var(--border); padding-bottom: 12px; color: var(--text-main); }
+
+        /* MODALS */
+        .modal-overlay { position: fixed; top:0; left:0; width:100%; height:100%; background: rgba(0,0,0,0.6); backdrop-filter: blur(8px); display: none; align-items: center; justify-content: center; z-index: 100; opacity: 0; transition: 0.2s; }
+        .modal-overlay.open { display: flex; opacity: 1; }
+        .modal-box { background: var(--bg-surface); width: 550px; padding: 2.5rem; border-radius: 24px; box-shadow: 0 30px 60px rgba(0,0,0,0.15); position: relative; color: var(--text-main); }
+        .input-std { width: 100%; padding: 14px; border: 1px solid var(--border); border-radius: 10px; outline: none; font-size: 0.95rem; margin-bottom: 15px; background: var(--bg-body); color: var(--text-main); transition: 0.2s; }
+        .input-std:focus { border-color: var(--text-main); background: var(--bg-surface); }
+        #meet-frame { width: 100%; height: 500px; border: none; border-radius: 12px; background: #000; }
+
+        /* FOCUS OVERLAY */
+        #focus-screen { position: fixed; top:0; left:0; width:100%; height:100%; background: #000; color: #fff; z-index: 200; display: none; flex-direction: column; align-items: center; justify-content: center; }
+        .focus-timer { font-size: 9rem; font-weight: 200; letter-spacing: -5px; margin-bottom: 1rem; font-family: 'Space Grotesk'; }
+        .focus-btn { background: #fff; color: #000; border: none; padding: 14px 40px; border-radius: 40px; cursor: pointer; font-weight: 600; margin: 0 10px; transition: 0.2s; letter-spacing: 1px; text-transform: uppercase; font-size: 0.8rem; }
+        .focus-controls { display: flex; gap: 20px; margin-bottom: 40px; }
+        .time-input { background: transparent; border: 1px solid #333; color: #fff; padding: 10px; border-radius: 8px; width: 80px; text-align: center; font-size: 1.2rem; }
+        .template-btn { background: #222; border: 1px solid #444; color: #aaa; padding: 8px 20px; border-radius: 20px; font-size: 0.8rem; cursor: pointer; }
+        .template-btn:hover { color: #fff; border-color: #fff; }
+
+        /* INSTALL MODAL */
+        .install-guide { text-align: left; font-size: 0.9rem; color: #666; line-height: 1.5; }
+
+        /* FAB */
+        .fab { position: fixed; bottom: 40px; right: 40px; width: 64px; height: 64px; background: var(--primary); color: var(--bg-surface); border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 2rem; cursor: pointer; box-shadow: 0 15px 30px rgba(0,0,0,0.2); transition: 0.3s; z-index: 50; }
+        .fab:hover { transform: scale(1.05) rotate(90deg); }
+
+        /* TOAST */
+        #toast { position: fixed; bottom: 30px; left: 50%; transform: translateX(-50%); background: #111; color: #fff; padding: 12px 24px; border-radius: 30px; font-size: 0.9rem; opacity: 0; pointer-events: none; transition: 0.3s; z-index: 200; font-weight: 500; }
+        #toast.show { opacity: 1; bottom: 50px; }
+
+        @media (max-width: 768px) {
+            aside { position: fixed; bottom: 0; left: 0; width: 100%; height: 70px; flex-direction: row; padding: 5px; border-right: none; border-top: 1px solid var(--border); background: var(--bg-surface); z-index: 100; justify-content: space-around; }
+            .nav-btn { flex-direction: column; gap: 4px; font-size: 0.6rem; width: auto; background: transparent !important; }
+            .kb-hint, .brand, .user-mini, .calc-widget, .theme-selector { display: none; }
+            main { padding: 1.5rem; padding-bottom: 90px; }
+            .workspace { grid-template-columns: 1fr; padding: 0; gap: 1rem; overflow-y: auto; }
+            .right-panel { display: none; } 
+            .workspace.full-cal .right-panel { display: flex; }
+        }
+    </style>
+</head>
+<body>
+
+    <div id="app-container" class="visible">
+        <aside>
+            <div class="brand"><i class="ph ph-aperture" style="font-size:1.5rem;"></i> AURA</div>
+            
+            <div class="nav-btn active"><i class="ph ph-kanban"></i> Dashboard</div>
+            <div class="nav-btn" onclick="undo()"><i class="ph ph-arrow-u-up-left"></i> Deshacer <span class="kb-hint">Ctrl+Z</span></div>
+            <div class="nav-btn" onclick="redo()"><i class="ph ph-arrow-u-up-right"></i> Rehacer <span class="kb-hint">Ctrl+Y</span></div>
+            <div class="nav-btn" onclick="openFocus()"><i class="ph ph-brain"></i> Modo Enfoque</div>
+            <div class="nav-btn" onclick="startMeeting()"><i class="ph ph-video-camera"></i> Reunión</div>
+            <div class="nav-btn" onclick="openSync()"><i class="ph ph-qr-code"></i> Sync Móvil</div>
+            <div class="nav-btn" id="install-btn" style="display:none;" onclick="installApp()"><i class="ph ph-download-simple"></i> Instalar App</div>
+
+            <div style="margin-top:auto; margin-bottom:1rem;">
+                <div style="font-size:0.7rem; font-weight:700; color:var(--text-muted); margin-bottom:8px; letter-spacing:1px;">TEMA</div>
+                <div class="theme-selector">
+                    <div class="theme-dot active" style="background:#eee;" onclick="setTheme('light', this)" title="Original"></div>
+                    <div class="theme-dot" style="background:#111;" onclick="setTheme('dark', this)" title="Dark"></div>
+                    <div class="theme-dot" style="background:#999;" onclick="setTheme('gray', this)" title="Architect"></div>
+                    <div class="theme-dot" style="background:#0F172A;" onclick="setTheme('midnight', this)" title="Midnight"></div>
+                </div>
+            </div>
+
+            <div class="calc-widget">
+                <input type="text" class="calc-display" id="calc-display" readonly value="0">
+                <div class="calc-grid">
+                    <button class="calc-btn op" onclick="calcCl()">C</button>
+                    <button class="calc-btn op" onclick="calcIn('/')">/</button>
+                    <button class="calc-btn op" onclick="calcIn('*')">*</button>
+                    <button class="calc-btn op" onclick="calcBk()">⌫</button>
+                    <button class="calc-btn" onclick="calcIn('7')">7</button>
+                    <button class="calc-btn" onclick="calcIn('8')">8</button>
+                    <button class="calc-btn" onclick="calcIn('9')">9</button>
+                    <button class="calc-btn op" onclick="calcIn('-')">-</button>
+                    <button class="calc-btn" onclick="calcIn('4')">4</button>
+                    <button class="calc-btn" onclick="calcIn('5')">5</button>
+                    <button class="calc-btn" onclick="calcIn('6')">6</button>
+                    <button class="calc-btn op" onclick="calcIn('+')">+</button>
+                    <button class="calc-btn" onclick="calcIn('1')">1</button>
+                    <button class="calc-btn" onclick="calcIn('2')">2</button>
+                    <button class="calc-btn" onclick="calcIn('3')">3</button>
+                    <button class="calc-btn op" onclick="calcEq()" style="grid-row:span 2; background:var(--accent); color:#fff;">=</button>
+                    <button class="calc-btn" onclick="calcIn('0')" style="grid-column:span 2;">0</button>
+                    <button class="calc-btn" onclick="calcIn('.')">.</button>
+                </div>
+            </div>
+
+            <div class="user-mini">
+                <div class="avatar">A</div>
+                <div><div style="font-weight:600;font-size:0.9rem;">Alfredo Alonzo</div><div style="color:var(--text-muted);font-size:0.75rem;">Pro</div></div>
+            </div>
+        </aside>
+
+        <main>
+            <div class="header-bar">
+                <div class="search-wrap">
+                    <i class="ph ph-magnifying-glass" style="color:var(--text-muted)"></i>
+                    <input type="text" class="search-input" placeholder="Buscar entregas, planos..." oninput="renderBoard(this.value)">
+                    <button class="mic-btn" id="mic-btn" onclick="toggleVoice()"><i class="ph ph-microphone"></i></button>
+                </div>
+                <div style="font-size:0.9rem;font-weight:500;" id="date-today">...</div>
+            </div>
+
+            <div class="workspace" id="workspace">
+                <div class="kanban-area">
+                    <div class="column" ondragover="allowDrop(event)" ondrop="drop(event, 'col1')">
+                        <div class="col-header">
+                            <input type="text" id="t-col1" class="col-title" value="ARQUITECTURA" onblur="saveTitles()">
+                            <span id="c-col1" style="font-size:0.8rem;color:var(--text-muted);">0</span>
+                        </div>
+                        <div class="task-list" id="list-col1"></div>
+                        <button onclick="openModal('col1')" style="width:100%;padding:10px;border:none;background:transparent;color:var(--text-muted);cursor:pointer;">+ Agregar</button>
+                    </div>
+                    <div class="column" ondragover="allowDrop(event)" ondrop="drop(event, 'col2')">
+                        <div class="col-header">
+                            <input type="text" id="t-col2" class="col-title" value="LOOMINT" onblur="saveTitles()">
+                            <span id="c-col2" style="font-size:0.8rem;color:var(--text-muted);">0</span>
+                        </div>
+                        <div class="task-list" id="list-col2"></div>
+                        <button onclick="openModal('col2')" style="width:100%;padding:10px;border:none;background:transparent;color:var(--text-muted);cursor:pointer;">+ Agregar</button>
+                    </div>
+                    <div class="column" ondragover="allowDrop(event)" ondrop="drop(event, 'col3')">
+                        <div class="col-header">
+                            <input type="text" id="t-col3" class="col-title" value="IDEAS" onblur="saveTitles()">
+                            <span id="c-col3" style="font-size:0.8rem;color:var(--text-muted);">0</span>
+                        </div>
+                        <div class="task-list" id="list-col3"></div>
+                        <button onclick="openModal('col3')" style="width:100%;padding:10px;border:none;background:transparent;color:var(--text-muted);cursor:pointer;">+ Agregar</button>
+                    </div>
+                </div>
+
+                <div class="right-panel">
+                    <div class="cal-controls">
+                        <button class="nav-btn" style="padding:5px;" onclick="changeMonth(-1)"><i class="ph ph-caret-left"></i></button>
+                        <span style="font-weight:700; font-size:0.9rem;" id="cal-month-name">MES</span>
+                        <button class="nav-btn" style="padding:5px;" onclick="changeMonth(1)"><i class="ph ph-caret-right"></i></button>
+                        <button class="nav-btn" style="padding:5px; margin-left:auto;" onclick="toggleFullCalendar()" title="Expandir/Esc"><i class="ph ph-arrows-out-simple"></i></button>
+                    </div>
+                    <div class="cal-grid" id="cal-grid"></div>
+                    <div class="agenda-list">
+                        <div style="font-size:0.7rem; font-weight:700; color:var(--text-muted); margin-bottom:10px;">PRÓXIMAS</div>
+                        <div id="agenda-container"></div>
+                    </div>
+                </div>
+            </div>
+        </main>
+    </div>
+
+    <div class="modal-overlay" id="modal">
+        <div class="modal-box">
+            <h2 style="margin-bottom:1.5rem;" id="modal-title">Nuevo Item</h2>
+            <input type="hidden" id="edit-id"><input type="hidden" id="edit-col">
+            <input type="text" id="inp-title" class="input-std" placeholder="Título..." autofocus>
+            <div style="display:grid; grid-template-columns:1fr 1fr; gap:15px;">
+                <select id="inp-col" class="input-std"><option value="col1">Columna 1</option><option value="col2">Columna 2</option><option value="col3">Columna 3</option></select>
+                <input type="datetime-local" id="inp-date" class="input-std">
+            </div>
+            <input type="url" id="inp-link" class="input-std" placeholder="Link externo...">
+            <input type="file" id="inp-file" class="input-std" onchange="handleFile()">
+            <div id="file-info" style="font-size:0.8rem;color:green;margin-bottom:15px;"></div>
+            <div style="text-align:right;">
+                <button type="button" onclick="deleteTaskSafe();" style="color:red;background:none;border:none;margin-right:20px;cursor:pointer;">Borrar</button>
+                <button type="button" onclick="closeModalSafe()" style="color:grey;background:none;border:none;margin-right:10px;cursor:pointer;">Cancelar</button>
+                <button type="button" onclick="saveTask()" style="background:var(--primary);color:var(--bg-surface);padding:10px 20px;border:none;border-radius:8px;cursor:pointer;">Guardar</button>
+            </div>
+        </div>
+    </div>
+
+    <div class="modal-overlay" id="meet-modal">
+        <div class="modal-box" style="width:90%; height:80%; max-width:1000px;">
+            <div style="display:flex; justify-content:space-between; margin-bottom:10px;">
+                <h3>Sala de Reunión</h3>
+                <button onclick="closeMeet()" style="border:none;background:#eee;padding:5px 10px;border-radius:5px;cursor:pointer;">Cerrar (ESC)</button>
+            </div>
+            <div id="meet-container" style="width:100%; height:90%;"></div>
+        </div>
+    </div>
+
+    <div class="modal-overlay" id="sync-modal">
+        <div class="modal-box" style="text-align:center;">
+            <h3>Sincronizar</h3>
+            <div id="qr-area" style="margin:20px auto; display:flex; justify-content:center;"></div>
+            <p style="font-size:0.8rem; color:var(--text-muted);">¿QR muy denso? Usa este código:</p>
+            <textarea id="sync-text" style="width:100%; height:60px; margin-top:10px; font-size:0.7rem;" onclick="this.select()" readonly></textarea>
+            <div style="margin-top:20px; border-top:1px solid #eee; padding-top:10px;">
+                <p>Importar código:</p>
+                <input type="text" id="import-text" style="width:100%; padding:5px;">
+                <button onclick="importData()" style="margin-top:5px; padding:5px 10px; background:var(--primary); color:var(--bg-surface); border:none; border-radius:5px;">Importar</button>
+            </div>
+            <button onclick="closeModalSafe()" style="margin-top:20px; background:none; border:none; cursor:pointer; color:var(--text-muted);">Cerrar (ESC)</button>
+        </div>
+    </div>
+
+    <div class="modal-overlay" id="install-modal">
+        <div class="modal-box" onclick="event.stopPropagation()">
+            <h3>Instalar Aplicación</h3>
+            <div class="install-guide" style="margin-top:20px; color:var(--text-muted);">
+                <p><b>💻 PC (Chrome/Edge):</b> Busca el icono de (+) en la barra de dirección o ve a Menú > Guardar y compartir > Instalar Alfredo OS.</p>
+                <p style="margin-top:10px;"><b>📱 iOS (iPhone):</b> Toca <b>Compartir</b> <i class="ph ph-export"></i> y selecciona <b>"Agregar a Inicio"</b>.</p>
+            </div>
+            <button onclick="closeModalSafe()" style="margin-top:20px; padding:10px 20px; background:var(--primary); color:var(--bg-surface); border:none; border-radius:8px;">Entendido</button>
+        </div>
+    </div>
+
+    <div id="focus-screen">
+        <div style="text-transform: uppercase; letter-spacing: 5px; margin-bottom: 30px; opacity: 0.7;">Modo Enfoque</div>
+        
+        <div class="focus-controls">
+            <div><label style="font-size:0.7rem; color:#aaa; display:block;">TRABAJO (MIN)</label><input type="number" id="work-time" class="time-input" value="25"></div>
+            <div><label style="font-size:0.7rem; color:#aaa; display:block;">DESCANSO (MIN)</label><input type="number" id="break-time" class="time-input" value="5"></div>
+        </div>
+        <div style="margin-bottom:30px;">
+            <span class="template-btn" onclick="applyTemplate(25,5)">Pomodoro</span>
+            <span class="template-btn" onclick="applyTemplate(50,10)">Deep Work</span>
+        </div>
+        <div class="focus-timer" id="focus-timer">25:00</div>
+        <div id="focus-status" style="margin-bottom:20px; color:#10B981; font-weight:bold;">LISTO</div>
+        <div>
+            <button class="focus-btn" onclick="startFocus()">INICIAR</button>
+            <button class="focus-btn" onclick="resetFocus()">RESET</button>
+            <button class="focus-btn" style="border-color: #ef4444; color: #ef4444;" onclick="exitFocus()">SALIR (ESC)</button>
+        </div>
+    </div>
+
+    <div class="fab" onclick="openModal()"><i class="ph ph-plus"></i></div>
+    <div id="toast" style="position:fixed;bottom:30px;left:50%;transform:translateX(-50%);background:#111;color:#fff;padding:10px 20px;border-radius:30px;opacity:0;transition:0.3s;pointer-events:none;z-index:999;">Notificación</div>
+
+    <script>
+        let DB = { titles: {col1:"ARQ", col2:"LOOM", col3:"IDEAS"}, tasks:{col1:[],col2:[],col3:[]} };
+        let history=[], redoStack=[];
+        let tempFile=null;
+        let viewDate = new Date();
+        
+        // FOCUS VARS
+        let focusInt; let isWork=true; let secondsLeft=25*60; let workDuration=25; let breakDuration=5;
+
+        window.onload = () => {
+            // PWA Check
+            let deferredPrompt;
+            window.addEventListener('beforeinstallprompt', (e) => { e.preventDefault(); deferredPrompt=e; document.getElementById('install-btn').style.display='flex'; });
+            window.installApp = async()=>{ if(deferredPrompt){ deferredPrompt.prompt(); deferredPrompt=null; } else { document.getElementById('install-modal').classList.add('open'); } };
+
+            const s=localStorage.getItem('alfredo_aura_db');
+            if(s) DB=JSON.parse(s);
+            
+            // Cargar Tema
+            const savedTheme = localStorage.getItem('alfredo_theme') || 'light';
+            document.body.setAttribute('data-theme', savedTheme);
+            updateThemeDots(savedTheme);
+
+            document.getElementById('date-today').innerText = new Date().toLocaleDateString();
+            refreshUI();
+
+            // GLOBAL ESC KEY
+            document.addEventListener('keydown', e=>{ 
+                if(e.key==="Escape") { 
+                    closeModalSafe(); closeMeet(); document.getElementById('sync-modal').classList.remove('open'); document.getElementById('install-modal').classList.remove('open'); exitFocus(); document.getElementById('workspace').classList.remove('full-cal'); 
+                }
+                if((e.ctrlKey||e.metaKey) && e.key.toLowerCase()==='z') { e.preventDefault(); undo(); }
+                if((e.ctrlKey||e.metaKey) && e.key.toLowerCase()==='y') { e.preventDefault(); redo(); }
+            });
+        };
+
+        // --- THEME & CALC ---
+        function setTheme(t, el) {
+            document.body.setAttribute('data-theme', t);
+            localStorage.setItem('alfredo_theme', t);
+            updateThemeDots(t);
+        }
+        function updateThemeDots(t) {
+            document.querySelectorAll('.theme-dot').forEach(d => d.classList.remove('active'));
+            const map = {'light':0, 'dark':1, 'gray':2, 'midnight':3};
+            document.querySelectorAll('.theme-dot')[map[t]].classList.add('active');
+        }
+
+        // CALCULATOR LOGIC
+        let calcVal = "";
+        function calcIn(v) { calcVal += v; document.getElementById('calc-display').value = calcVal; }
+        function calcCl() { calcVal = ""; document.getElementById('calc-display').value = "0"; }
+        function calcBk() { calcVal = calcVal.slice(0, -1); document.getElementById('calc-display').value = calcVal || "0"; }
+        function calcEq() { try { calcVal = eval(calcVal).toString(); document.getElementById('calc-display').value = calcVal; } catch(e) { document.getElementById('calc-display').value = "Error"; calcVal=""; } }
+
+        // --- HISTORY ---
+        function pushHistory(){ history.push(JSON.stringify(DB)); if(history.length>10) history.shift(); redoStack=[]; }
+        function undo(){ if(history.length===0) return; redoStack.push(JSON.stringify(DB)); DB=JSON.parse(history.pop()); saveData(true); refreshUI(); showToast("Deshecho"); }
+        function redo(){ if(redoStack.length===0) return; history.push(JSON.stringify(DB)); DB=JSON.parse(redoStack.pop()); saveData(true); refreshUI(); showToast("Rehecho"); }
+
+        // --- UI ---
+        function refreshUI(){
+            document.getElementById('t-col1').value=DB.titles.col1; document.getElementById('t-col2').value=DB.titles.col2; document.getElementById('t-col3').value=DB.titles.col3;
+            const sel=document.getElementById('inp-col'); sel.options[0].text=DB.titles.col1; sel.options[1].text=DB.titles.col2; sel.options[2].text=DB.titles.col3;
+            renderBoard(); renderCalendar(); renderAgenda();
+        }
+
+        function renderBoard(filter=""){
+            ['col1','col2','col3'].forEach(c=>{
+                const list=document.getElementById(`list-${c}`); list.innerHTML="";
+                DB.tasks[c].forEach((t,i)=>{
+                    if(filter && !t.title.toLowerCase().includes(filter.toLowerCase())) return;
+                    const card=document.createElement('div'); card.className="card"; card.draggable=true;
+                    card.ondblclick=()=>openModal(c,i);
+                    card.ondragstart=e=>{ e.dataTransfer.setData("text", JSON.stringify({c,i})); };
+                    let media="";
+                    if(t.file) {
+                        if(t.file.type.includes('image') && t.file.data) media=`<img src="${t.file.data}" class="media-preview">`;
+                        else media=`<div class="file-pill">📄 ${t.file.name}</div>`;
+                    }
+                    card.innerHTML=`${media}<div class="card-title">${t.title}</div><div style="font-size:0.7rem;color:var(--text-muted);">${t.date||''}</div>`;
+                    list.appendChild(card);
+                });
+            });
+        }
+
+        function allowDrop(e){e.preventDefault();}
+        function drop(e,dest){
+            e.preventDefault();
+            const data=JSON.parse(e.dataTransfer.getData("text"));
+            pushHistory();
+            const item=DB.tasks[data.c][data.i];
+            DB.tasks[data.c].splice(data.i,1);
+            DB.tasks[dest].push(item);
+            saveData(); refreshUI();
+        }
+
+        function renderCalendar(){
+            const g=document.getElementById('cal-grid'); g.innerHTML="";
+            const d=new Date(); const m=d.getMonth(); const y=d.getFullYear();
+            const days=new Date(y,m+1,0).getDate();
+            const evs=new Set();
+            Object.values(DB.tasks).flat().forEach(t=>{ if(t.date && new Date(t.date).getMonth()===m) evs.add(new Date(t.date).getDate()); });
+            for(let i=1;i<=days;i++){
+                const cl=i===d.getDate()?"today":"";
+                const dot=evs.has(i) ? `<div class="cal-dot"></div>` : "";
+                g.innerHTML+=`<div class="cal-day ${cl}" onclick="openModal(null,null,'${y}-${String(m+1).padStart(2,'0')}-${String(i).padStart(2,'0')}T09:00')">${i}${dot}</div>`;
+            }
+        }
+        function changeMonth(v) { viewDate.setMonth(viewDate.getMonth()+v); renderCalendar(); }
+        function toggleFullCalendar(){ document.getElementById('workspace').classList.toggle('full-cal'); }
+
+        function renderAgenda(){
+            const c=document.getElementById('agenda-container'); c.innerHTML="";
+            const all=[]; Object.values(DB.tasks).flat().forEach(t=>{if(t.date)all.push(t)});
+            all.sort((a,b)=>new Date(a.date)-new Date(b.date));
+            all.forEach(t=>{
+                const d=new Date(t.date);
+                c.innerHTML+=`<div class="agenda-item"><div class="ai-date" style="font-size:0.8rem;padding:5px;">${d.getDate()}</div><div><div style="font-weight:600;font-size:0.8rem;">${t.title}</div></div></div>`;
+            });
+        }
+
+        // --- CRUD SAFE ---
+        function openModal(c=null, i=null, preDate=null){
+            document.getElementById('modal').classList.add('open');
+            if(c && i!==null){
+                const t=DB.tasks[c][i];
+                document.getElementById('edit-col').value=c; document.getElementById('edit-id').value=i;
+                document.getElementById('inp-title').value=t.title; document.getElementById('inp-col').value=c;
+                document.getElementById('inp-date').value=t.date; document.getElementById('inp-link').value=t.link||"";
+            } else {
+                document.getElementById('edit-id').value="";
+                document.getElementById('inp-title').value="";
+                if(preDate) document.getElementById('inp-date').value = preDate;
+            }
+        }
+        function closeModalSafe(){ document.querySelectorAll('.modal-overlay').forEach(e=>e.classList.remove('open')); }
+        function handleFile(){
+            const f=document.getElementById('inp-file').files[0];
+            if(!f)return;
+            if(f.size>3000000){ tempFile={type:f.type,name:f.name,data:null}; document.getElementById('file-info').innerText="Grande (Ref)"; }
+            else {
+                const r=new FileReader(); r.onload=e=>{ tempFile={type:f.type,name:f.name,data:e.target.result}; document.getElementById('file-info').innerText="Listo"; };
+                r.readAsDataURL(f);
+            }
+        }
+        function saveTask(){
+            pushHistory();
+            const t=document.getElementById('inp-title').value;
+            const c=document.getElementById('inp-col').value;
+            const d=document.getElementById('inp-date').value;
+            const l=document.getElementById('inp-link').value;
+            const item={title:t, date:d, link:l, file:tempFile};
+            const eid=document.getElementById('edit-id').value;
+            const ecol=document.getElementById('edit-col').value;
+            if(eid!==""){ if(ecol!==c) { DB.tasks[ecol].splice(eid,1); DB.tasks[c].push(item); } else { DB.tasks[c][eid] = item; } } 
+            else { DB.tasks[c].push(item); }
+            saveData(); refreshUI(); closeModalSafe(); tempFile=null;
+        }
+        function deleteTaskSafe(){ 
+            const eid=document.getElementById('edit-id').value; const ecol=document.getElementById('edit-col').value;
+            if(eid!==""){ pushHistory(); DB.tasks[ecol].splice(eid,1); saveData(); refreshUI(); closeModalSafe(); }
+        }
+        function saveTitles() { DB.titles.col1=document.getElementById('t-col1').value; DB.titles.col2=document.getElementById('t-col2').value; DB.titles.col3=document.getElementById('t-col3').value; saveData(true); }
+        function saveData(skip=false){ if(!skip){} localStorage.setItem('alfredo_aura_db', JSON.stringify(DB)); }
+
+        // --- MEET ---
+        function startMeeting(){
+            document.getElementById('meet-modal').classList.add('open');
+            const domain='meet.jit.si';
+            const options={
+                roomName: 'AlfredoOS-Meeting-'+Date.now(),
+                width: '100%', height: '100%',
+                parentNode: document.querySelector('#meet-container')
+            };
+            new JitsiMeetExternalAPI(domain, options);
+        }
+        function closeMeet(){ document.getElementById('meet-modal').classList.remove('open'); document.getElementById('meet-container').innerHTML=""; }
+
+        // --- JARVIS ---
+        function toggleVoice(){
+            if(!('webkitSpeechRecognition' in window)) return alert("Usa Chrome");
+            const r=new webkitSpeechRecognition(); r.lang="es-ES";
+            document.getElementById('mic-btn').classList.add('listening');
+            r.onresult = e => {
+                const t=e.results[0][0].transcript;
+                let c='col3'; let colName="Ideas";
+                if(t.toLowerCase().includes('arquitectura')) {c='col1'; colName="Arquitectura";}
+                if(t.toLowerCase().includes('loomint')) {c='col2'; colName="Loomint";}
+                pushHistory();
+                DB.tasks[c].push({title:t, date:new Date().toLocaleDateString()});
+                saveData(); refreshUI();
+                const u=new SpeechSynthesisUtterance("Entendido, agregando " + t);
+                window.speechSynthesis.speak(u);
+                document.getElementById('mic-btn').classList.remove('listening');
+            };
+            r.start();
+        }
+
+        // --- SYNC ---
+        function openSync(){
+            document.getElementById('sync-modal').classList.add('open');
+            const str=JSON.stringify(DB);
+            const zip=LZString.compressToEncodedURIComponent(str);
+            document.getElementById('sync-text').value=zip;
+            const url=window.location.href.split('?')[0]+'?sync='+zip;
+            document.getElementById('qr-area').innerHTML="";
+            if(url.length<2000) new QRCode(document.getElementById('qr-area'), {text:url, width:200, height:200});
+            else document.getElementById('qr-area').innerHTML="Data muy grande para QR. Usa texto.";
+        }
+        function importData(){
+            const txt=document.getElementById('import-text').value;
+            try{ const j=LZString.decompressFromEncodedURIComponent(txt); DB=JSON.parse(j); saveData(); refreshUI(); alert("Importado"); closeModalSafe(); }catch(e){alert("Error");}
+        }
+
+        // --- FOCUS PRO ---
+        function openFocus(){ document.getElementById('focus-screen').style.display='flex'; }
+        function exitFocus(){ document.getElementById('focus-screen').style.display='none'; clearInterval(focusInt); }
+        function applyTemplate(w,b){ document.getElementById('work-time').value=w; document.getElementById('break-time').value=b; }
+        function startFocus(){
+            clearInterval(focusInt);
+            workDuration = document.getElementById('work-time').value;
+            breakDuration = document.getElementById('break-time').value;
+            isWork = true;
+            secondsLeft = workDuration * 60;
+            speak("Iniciando sesión.");
+            document.getElementById('focus-status').innerText = "MODO TRABAJO";
+            document.getElementById('focus-status').style.color = "#10B981";
+            focusInt = setInterval(timerLoop, 1000);
+        }
+        function resetFocus(){ clearInterval(focusInt); document.getElementById('focus-timer').innerText="00:00"; }
+        function timerLoop(){
+            if(secondsLeft > 0){
+                secondsLeft--;
+                const m=Math.floor(secondsLeft/60); const s=secondsLeft%60;
+                document.getElementById('focus-timer').innerText=`${m}:${s<10?'0':''}${s}`;
+            } else { switchMode(); }
+        }
+        function switchMode(){
+            if(isWork){
+                isWork = false; secondsLeft = breakDuration * 60;
+                document.getElementById('focus-status').innerText = "DESCANSO";
+                document.getElementById('focus-status').style.color = "#3B82F6";
+                speak("Tiempo completado, toma un descanso.");
+            } else {
+                isWork = true; secondsLeft = workDuration * 60;
+                document.getElementById('focus-status').innerText = "MODO TRABAJO";
+                document.getElementById('focus-status').style.color = "#10B981";
+                speak("Vuelta al trabajo.");
+            }
+        }
+        function speak(txt){ const u=new SpeechSynthesisUtterance(txt); u.lang='es-ES'; window.speechSynthesis.speak(u); }
+        function showToast(m) { const t=document.getElementById('toast'); t.innerText=m; t.classList.add('show'); setTimeout(()=>t.classList.remove('show'),2000); }
+        function openInstallHelp(){ document.getElementById('install-modal').classList.add('open'); }
+    </script>
+    
+    <div id="toast" style="position:fixed;bottom:30px;left:50%;transform:translateX(-50%);background:#111;color:#fff;padding:10px 20px;border-radius:30px;opacity:0;transition:0.3s;pointer-events:none;z-index:999;">Notificación</div>
+</body>
+</html>
